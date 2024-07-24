@@ -1,0 +1,46 @@
+---
+- name: Pre-patching tasks
+  hosts: all
+  become: yes
+  gather_facts: no
+
+  tasks:
+    - name: Check disk usage for /var and /tmp
+      shell: df -h {{ item }}
+      register: disk_usage
+      loop:
+        - /var
+        - /tmp
+
+    - name: Parse disk usage for /var and /tmp
+      set_fact:
+        var_usage: "{{ disk_usage.results[0].stdout_lines[1].split()[4].rstrip('%') | int }}"
+        tmp_usage: "{{ disk_usage.results[1].stdout_lines[1].split()[4].rstrip('%') | int }}"
+      when: disk_usage.results | length == 2
+
+    - name: Trigger handlers if /var or /tmp usage is over 90%
+      meta: flush_handlers
+      when: var_usage >= 90 or tmp_usage >= 90
+
+    - name: Get hostname of the current machine
+      command: hostname
+      register: hostname
+
+    - name: Report high disk usage to a file on the controller node
+      delegate_to: localhost
+      lineinfile:
+        path: /path/to/local/non_ready_storage.txt
+        line: "{{ hostname.stdout }}: /var - {{ var_usage }}%, /tmp - {{ tmp_usage }}%"
+      when: var_usage >= 90 or tmp_usage >= 90
+
+  handlers:
+    - name: Clean up unnecessary files in /var/tmp and /tmp
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/tmp/*
+        - /tmp/*
+
+    - name: Vacuum journal logs older than 2 days
+      command: journalctl --vacuum-time=2d

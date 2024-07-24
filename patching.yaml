@@ -1,0 +1,36 @@
+---
+- name: Patching and Post-Patching Verification
+  hosts: all
+  become: yes
+  gather_facts: no
+
+  tasks:
+    # Apply all available patches
+    - name: Apply all available patches
+      yum:
+        name: '*'
+        state: latest
+
+    # Verify that patches are applied
+    - name: Verify that patches are applied
+      command: yum check-update
+      register: update_check
+      changed_when: false
+      # `changed_when: false` means that this task will not be marked as changed 
+      # regardless of its outcome. This is useful for verification tasks.
+
+    # Report if there are any remaining updates and log the server
+    - name: Report and log if there are any remaining updates
+      block:
+        - name: Fail the task if there are pending updates
+          fail:
+            msg: "There are still pending updates on {{ inventory_hostname }}"
+          when: update_check.stdout != ''
+
+        - name: Log the server with pending updates
+          delegate_to: localhost
+          lineinfile:
+            path: /path/to/local/failed_servers.txt
+            create: yes
+            line: "{{ inventory_hostname }}: pending updates"
+          when: update_check.stdout != ''

@@ -1,27 +1,13 @@
----
-- name: Gather disk usage and write to CSV
+- name: data gathere cvs disk report
   hosts: all
   gather_facts: yes
   tasks:
-    - name: Run df -Th command
-      shell: df -Th
-      register: disk_usage
+    - name: Get disk space usage
+      command: df -Th
+      register: disk_space
 
-    - name: Write CSV header
-      copy:
-        content: "IP,Hostname,Filesystem,Size,Used,Avail,Use%,Mounted on\n"
-        dest: "/tmp/disk_usage_report.csv"
-        force: no
-
-    - name: Append disk usage to CSV
-      lineinfile:
-        path: "/tmp/disk_usage_report.csv"
-        line: "{{ ansible_host }},{{ ansible_hostname }},{{ item }}"
-      loop: "{{ disk_usage.stdout_lines }}"
-      when: item not in ["", "Filesystem", "tmpfs"]
-
-    - name: Fetch the CSV file to local
-      fetch:
-        src: "/tmp/disk_usage_report.csv"
-        dest: "./reports/"
-        flat: yes
+    - name: Generate final CSV report using Jinja2 template
+      template:
+        src: df_report_template.j2
+        dest: /tmp/final_disk_usage_report.csv
+      delegate_to: localhost

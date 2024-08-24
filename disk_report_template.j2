@@ -2,14 +2,6 @@ IP Address,Hostname,Filesystem,Type,Size,Used,Available,Use%,Mounted on
 {% for host in groups['all'] %}
 {% for line in hostvars[host]['disk_space'].stdout_lines[1:] %}
 {% set fields = line.split() %}
-{{ hostvars[host]['ansible_default_ipv4']['address'] }},
-{{ hostvars[host]['ansible_hostname'] }},
-{{ fields[0] }},
-{{ fields[1] }},
-{{ fields[2] }},
-{{ fields[3] }},
-{{ fields[4] }},
-{{ fields[5] }},
-{{ fields[6] }}
+{{ hostvars[host]['ansible_default_ipv4']['address'] }}, {{ hostvars[host]['ansible_hostname'] }}, {{ fields[0] }}, {{ fields[1] }}, {{ fields[2] }}, {{ fields[3] }}, {{ fields[4] }}, {{ fields[5] }}, {{ fields[6] }}
 {% endfor %}
 {% endfor %}

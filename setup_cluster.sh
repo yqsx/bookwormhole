@@ -37,11 +37,11 @@ ansible all -m shell -u root -a "echo redhat | passwd --stdin hacluster"
 
 # Step 6: Authenticate nodes for pcs on one node (nodea)
 echo "Authenticating nodes for pcs..."
-ansible all -m shell -u root -a "pcs cluster auth nodea.private.example.com nodeb.private.example.com nodec.private.example.com -u hacluster -p redhat"
+ansible all -m shell -u root -a "pcs host auth nodea.private.example.com nodeb.private.example.com nodec.private.example.com -u hacluster -p redhat"
 
 # Step 7: Setup and start the cluster on one node (nodea)
 echo "Setting up and starting the cluster..."
-ansible a -m shell -u root -a "pcs cluster setup --name cluster1 nodea.private.example.com nodeb.private.example.com nodec.private.example.com"
+ansible a -m shell -u root -a "pcs cluster setup  cluster1 nodea.private.example.com nodeb.private.example.com nodec.private.example.com"
 ansible a -m shell -u root -a "pcs cluster start --all"
 ansible a -m shell -u root -a "pcs cluster enable --all"
 

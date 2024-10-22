@@ -9,10 +9,15 @@ Total Memory (GB): {% if hostvars[host]['ansible_memtotal_mb'] is defined %}{{ (
 
 Disk Space (GB): 
 {% set total_disk = 0 %}
-{% for device, details in hostvars[host]['ansible_devices'].items() if details.size is defined %}
+{% for device, details in hostvars[host]['ansible_devices'].items() if 'size' in details %}
   {% set total_disk = total_disk + (details.size | float) %}
 {% endfor %}
 {{ (total_disk / (1024*1024*1024)) | round(2) }},
 
-GPUs Detected: {% if hostvars[host]['ansible_devices'] | selectattr('key', 'search', '^gpu') | list %} Yes {% else %} No {% endif %}
+GPUs Detected: 
+{% if hostvars[host]['ansible_devices'] is defined and hostvars[host]['ansible_devices'] | selectattr('key', 'search', '^gpu') | list | length > 0 %}
+  Yes
+{% else %}
+  No
+{% endif %}
 {% endfor %}

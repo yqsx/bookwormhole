@@ -23,6 +23,10 @@
         ansible_total_cpu: "{{ (ansible_processor_vcpus | int) | default(4) }}"
         ansible_total_memory_gb: "{{ (ansible_memtotal_mb / 1024) | float | round(2) }}"
     
+    - name: Debug gathered values to check data types
+      debug:
+        msg: "CPU: {{ ansible_total_cpu }}, Memory: {{ ansible_total_memory_gb }}, Disk: {{ total_disk_space }}"
+
     - name: Cast disk space and CPU to float for safe calculations
       set_fact:
         total_disk_space: "{{ total_disk_space | float }}"

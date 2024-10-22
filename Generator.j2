@@ -1,13 +1,33 @@
-hostname,ip,ansible_serial_number,ansible_product_name,local_info1,ansible_total_memory (GB),ansible_total_cpu,cpu_model,total_disk_space (GB),total_cost
-{% for host in ansible_play_hosts %}
-{{ hostvars[host]['inventory_hostname'] }},
-{{ hostvars[host].get('ansible_default_ipv4', {}).get('address', 'N/A') }},
-{{ hostvars[host].get('ansible_serial_number', 'N/A') }},
-{{ hostvars[host].get('ansible_product_name', 'Unknown') }},
-{{ hostvars[host].get('local_info1', 'DC1') }},
-{{ hostvars[host].get('ansible_total_memory_gb', 0) }},
-{{ hostvars[host].get('ansible_total_cpu', 'N/A') }},
-{{ hostvars[host].get('ansible_processor', ['N/A'])[0] }},
-{{ hostvars[host].get('total_disk_space', 0) }},
-{{ hostvars[host].get('total_cost', 0) }}
+{% for host in groups["all"] %}
+Hostname: {{ hostvars[host]['inventory_hostname'] }},
+{% if hostvars[host]['ansible_distribution'] is defined and hostvars[host]['ansible_distribution_version'] is defined %}
+  {{ hostvars[host]['ansible_distribution'] }} {{ hostvars[host]['ansible_distribution_version'] }},
+{% else %}
+  Unknown,
+{% endif %}
+{% if hostvars[host]['ansible_processor_vcpus'] is defined %}{{ hostvars[host]['ansible_processor_vcpus'] }}{% else %}0{% endif %},
+{% if hostvars[host]['ansible_memtotal_mb'] is defined %}{{ (hostvars[host]['ansible_memtotal_mb'] / 1024) | round(2) }}{% else %}0.0{% endif %},
+{% set total_disk = 0 %}
+{% for device, details in hostvars[host]['ansible_devices'].items() if details.size is defined %}
+  {% if device.startswith('sd') or device.startswith('vd') or device.startswith('nvme') %}
+    {% set disk_size_numeric = details.size | regex_replace(' GB$', '') | float %}
+    {% set total_disk = total_disk + disk_size_numeric %}
+  {% endif %}
+{% endfor %}
+{{ total_disk | round(2) if total_disk > 0 else 0.0 }},
+
+{# --- Cost Calculation Section --- #}
+{# Calculate CPU, memory, and disk costs separately and show each one #}
+{% set cpu_cost = (hostvars[host]['ansible_processor_vcpus'] | float) * 24 * 30 * 0.05 if hostvars[host]['ansible_processor_vcpus'] is defined else 0 %}
+{% set memory_cost = (hostvars[host]['ansible_memtotal_mb'] / 1024) * 24 * 30 * 0.01 if hostvars[host]['ansible_memtotal_mb'] is defined else 0 %}
+{% set disk_cost = total_disk * 0.05 %}
+
+{# Show each cost separately before total #}
+${{ cpu_cost | round(2) }},
+${{ memory_cost | round(2) }},
+${{ disk_cost | round(2) }},
+
+{# Total cost by summing CPU, memory, and disk costs #}
+{% set total_cost = cpu_cost + memory_cost + disk_cost %}
+${{ total_cost | round(2) }}
 {% endfor %}

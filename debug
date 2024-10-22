@@ -1,13 +1,16 @@
 {% for host in ansible_play_hosts %}
-Hostname: {{ hostvars[host]['inventory_hostname'] }}, 
-IP Address: {{ hostvars[host].get('ansible_default_ipv4', {}).get('address', 'N/A') }},
-Serial Number: {{ hostvars[host].get('ansible_product_serial', 'N/A') }},
-Product Name: {{ hostvars[host].get('ansible_product_name', 'Unknown') }},
+Hostname: {{ hostvars[host]['inventory_hostname'] }},
+IP Address: {% if hostvars[host]['ansible_default_ipv4'] is defined %}{{ hostvars[host]['ansible_default_ipv4']['address'] }}{% else %}N/A{% endif %},
+Serial Number: {% if hostvars[host]['ansible_product_serial'] is defined %}{{ hostvars[host]['ansible_product_serial'] }}{% else %}N/A{% endif %},
+Product Name: {% if hostvars[host]['ansible_product_name'] is defined %}{{ hostvars[host]['ansible_product_name'] }}{% else %}Unknown{% endif %},
 Data Center: {{ hostvars[host]['local_info1'] }},
-CPU Cores: {{ hostvars[host].get('ansible_processor_vcpus', 0) }},
-Total Memory (GB): {{ (hostvars[host].get('ansible_memtotal_mb', 0) / 1024) | float | round(2) }},
-{% for device, details in hostvars[host]['ansible_devices'].items() if details.size is defined %}
-Disk: {{ device }} Size (GB): {{ details.size / (1024*1024*1024) | round(2) }},
-{% endfor %}
+CPU Cores: {% if hostvars[host]['ansible_processor_vcpus'] is defined %}{{ hostvars[host]['ansible_processor_vcpus'] }}{% else %}0{% endif %},
+Total Memory (GB): {% if hostvars[host]['ansible_memtotal_mb'] is defined %}{{ (hostvars[host]['ansible_memtotal_mb'] / 1024) | round(2) }}{% else %}0.0{% endif %},
+Disk Space (GB): 
+  {% set total_disk = 0 %}
+  {% for device, details in hostvars[host]['ansible_devices'].items() if details.size is defined %}
+    {% set total_disk = total_disk + (details.size / (1024*1024*1024)) %}
+  {% endfor %}
+  {{ total_disk | round(2) }},
 GPUs Detected: {% if hostvars[host]['ansible_devices'] | selectattr('key', 'search', '^gpu') | list %} Yes {% else %} No {% endif %}
 {% endfor %}

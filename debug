@@ -1,25 +1,12 @@
-#!/bin/bash
-
-# Input files
-DEVICES_JSON=$1
-FACTS_FILE=$2
-
-# Load CPU and Memory from the facts file
-source $FACTS_FILE
-
-# Initialize total disk space variable
-TOTAL_DISK_SPACE=0
-
-# Parse JSON to get disk sizes (vda, sda, nvme)
-while read -r line; do
-  SIZE=$(echo $line | jq '.value.size')
-  if [ "$SIZE" != "null" ]; then
-    SIZE_IN_GB=$(echo "scale=2; $SIZE / 1024 / 1024 / 1024" | bc)
-    TOTAL_DISK_SPACE=$(echo "scale=2; $TOTAL_DISK_SPACE + $SIZE_IN_GB" | bc)
-  fi
-done < <(jq -c '.[] | select(.host | test("^vda|^sda|^nvme"))' $DEVICES_JSON)
-
-# Output the final data in YAML format for Ansible
-echo "CPU: $CPU"
-echo "Memory: $MEMORY"
-echo "Disk_Space: $TOTAL_DISK_SPACE"
+hostname,ip,ansible_serial_number,ansible_product_name,local_info1,ansible_total_memory (GB),ansible_total_cpu,total_disk_space (GB),total_cost
+{% for host in ansible_play_hosts %}
+{{ hostvars[host]['inventory_hostname'] }},
+{{ hostvars[host].get('ansible_default_ipv4', {}).get('address', 'N/A') }},
+{{ hostvars[host].get('ansible_serial_number', 'N/A') }},
+{{ hostvars[host].get('ansible_product_name', 'Unknown') }},
+{{ hostvars[host].get('local_info1', 'DC1') }},
+{{ hostvars[host]['bash_results']['Memory'] }},
+{{ hostvars[host]['bash_results']['CPU'] }},
+{{ hostvars[host]['bash_results']['Disk_Space'] }},
+{{ hostvars[host].get('total_cost', 0) }}
+{% endfor %}

@@ -1,24 +1,13 @@
----
-- name: Gather facts from all hosts and write to centralized text file
-  hosts: all
-  gather_facts: yes
-  tasks:
-    - name: Set default local info fact (Data Center default to DC1)
-      set_fact:
-        local_info1: "DC1"
-
-    - name: Collect all gathered facts into a centralized text file (Jinja2 to text)
-      template:
-        src: centralized_system_data.j2
-        dest: /tmp/centralized_system_data.txt
-      delegate_to: localhost
-      run_once: true
-
-    - name: Run Bash script to process centralized data and generate CSV
-      delegate_to: localhost
-      shell: bash /tmp/process_centralized_data.sh /tmp/centralized_system_data.txt /tmp/final_report.csv
-
-    - name: Display the CSV report location
-      debug:
-        msg: "The CSV report has been generated at /tmp/final_report.csv"
-      delegate_to: localhost
+{% for host in ansible_play_hosts %}
+Hostname: {{ hostvars[host]['inventory_hostname'] }}, 
+IP Address: {{ hostvars[host].get('ansible_default_ipv4', {}).get('address', 'N/A') }},
+Serial Number: {{ hostvars[host].get('ansible_product_serial', 'N/A') }},
+Product Name: {{ hostvars[host].get('ansible_product_name', 'Unknown') }},
+Data Center: {{ hostvars[host]['local_info1'] }},
+CPU Cores: {{ hostvars[host].get('ansible_processor_vcpus', 0) }},
+Total Memory (GB): {{ (hostvars[host].get('ansible_memtotal_mb', 0) / 1024) | float | round(2) }},
+{% for device, details in hostvars[host]['ansible_devices'].items() if details.size is defined %}
+Disk: {{ device }} Size (GB): {{ details.size / (1024*1024*1024) | round(2) }},
+{% endfor %}
+GPUs Detected: {% if hostvars[host]['ansible_devices'] | selectattr('key', 'search', '^gpu') | list %} Yes {% else %} No {% endif %}
+{% endfor %}

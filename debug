@@ -15,7 +15,7 @@
     - name: Calculate total disk space in GB
       set_fact:
         total_disk_space: "{{ ansible_devices | selectattr('value.host', 'defined') | sum(attribute='value.size') | float / 1024 / 1024 / 1024 | round(2) }}"
-    
+
     - name: Ensure facts are compatible with both physical and virtual systems
       set_fact:
         ansible_serial_number: "{{ ansible_product_serial | default('N/A') }}"
@@ -23,12 +23,12 @@
         ansible_total_cpu: "{{ (ansible_processor_vcpus | int) | default(4) }}"
         ansible_total_memory_gb: "{{ (ansible_memtotal_mb / 1024) | float | round(2) }}"
     
-    - name: Debug gathered values to inspect their types and contents
+    - name: Debug gathered values to inspect their contents
       debug:
         msg:
-          - "CPU (type: {{ ansible_total_cpu | type }}): {{ ansible_total_cpu }}"
-          - "Memory (type: {{ ansible_total_memory_gb | type }}): {{ ansible_total_memory_gb }}"
-          - "Disk Space (type: {{ total_disk_space | type }}): {{ total_disk_space }}"
+          - "CPU: {{ ansible_total_cpu }}"
+          - "Memory: {{ ansible_total_memory_gb }}"
+          - "Disk Space: {{ total_disk_space }}"
 
     - name: Cast disk space and CPU to float for safe calculations
       set_fact:

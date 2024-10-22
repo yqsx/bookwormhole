@@ -3,42 +3,19 @@
   hosts: all
   gather_facts: yes
   tasks:
-    - name: Set local_info fact (default Data Center as DC1)
+    - name: Set default local info fact (Data Center default to DC1)
       set_fact:
         local_info1: "DC1"
 
-    - name: Validate and gather facts into structured data for central processing
-      set_fact:
-        server_data: |
-          Hostname: {{ inventory_hostname }}
-          IP Address: {{ ansible_default_ipv4.address }}
-          Serial Number: {{ ansible_product_serial | default('N/A') }}
-          Product Name: {{ ansible_product_name | default('Unknown') }}
-          Data Center: {{ local_info1 }}
-          CPU Cores: {{ ansible_processor_vcpus | default(0) }}
-          Total Memory (GB): {{ (ansible_memtotal_mb / 1024) | float | round(2) | default(0.0) }}
-          {% for device in ansible_devices if device.value.size %}
-          Disk: {{ device.key }} Size (GB): {{ device.value.size / (1024*1024*1024) | round(2) }}
-          {% endfor %}
-          {% if ansible_devices | selectattr('key', 'search', '^gpu') | list %}
-          GPUs Detected: Yes
-          {% else %}
-          GPUs Detected: No
-          {% endif %}
-
-    - name: Collect all data on localhost (avoid writing per-host files)
+    - name: Write gathered facts into a centralized structured text file (Jinja2 to text)
+      template:
+        src: system_data_template.j2
+        dest: /tmp/system_data_{{ inventory_hostname }}.txt
       delegate_to: localhost
-      run_once: true
-      copy:
-        content: |
-          {% for host in ansible_play_hosts %}
-          {{ hostvars[host]['server_data'] }}
-          {% endfor %}
-        dest: /tmp/collected_system_data.txt
 
-    - name: Run enhanced Bash script on localhost to process data and generate CSV
+    - name: Run Bash script to process structured data and generate CSV
       delegate_to: localhost
-      shell: bash /tmp/process_collected_data.sh /tmp/collected_system_data.txt /tmp/final_report.csv
+      shell: bash /tmp/process_system_data.sh /tmp/system_data_*.txt /tmp/final_report.csv
 
     - name: Display the CSV report location
       debug:

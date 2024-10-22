@@ -1,4 +1,4 @@
-{% for host in ansible_play_hosts %}
+{% for host in groups["all"] %}
 Hostname: {{ hostvars[host]['inventory_hostname'] }},
 IP Address: {% if hostvars[host]['ansible_default_ipv4'] is defined %}{{ hostvars[host]['ansible_default_ipv4']['address'] }}{% else %}N/A{% endif %},
 Serial Number: {% if hostvars[host]['ansible_product_serial'] is defined %}{{ hostvars[host]['ansible_product_serial'] }}{% else %}N/A{% endif %},
@@ -9,15 +9,26 @@ Total Memory (GB): {% if hostvars[host]['ansible_memtotal_mb'] is defined %}{{ (
 
 Disk Space (GB): 
 {% set total_disk = 0 %}
-{% for device, details in hostvars[host]['ansible_devices'].items() if 'size' in details %}
-  {% set total_disk = total_disk + (details.size | float) %}
+{% for device, details in hostvars[host]['ansible_devices'].items() if details.size is defined %}
+  {% if device.startswith('sd') or device.startswith('vd') or device.startswith('nvme') %}
+    {# Strip any non-numeric characters (like GB) and convert to float #}
+    {% set disk_size_numeric = details.size | regex_replace(' GB$', '') | float %}
+    {% set total_disk = total_disk + disk_size_numeric %}
+  {% endif %}
 {% endfor %}
-{{ (total_disk / (1024*1024*1024)) | round(2) }},
+{{ total_disk | round(2) if total_disk > 0 else 0.0 }},
 
-GPUs Detected: 
-{% if hostvars[host]['ansible_devices'] is defined and hostvars[host]['ansible_devices'] | selectattr('key', 'search', '^gpu') | list | length > 0 %}
-  Yes
-{% else %}
-  No
-{% endif %}
+{# --- Cost Calculation Section --- #}
+Cost Calculation:
+{% set memory_cost = 0 %}
+{% set disk_cost = 0 %}
+{% set total_cost = 0 %}
+{% set cpu_cost = 0 %}
+
+{% set cpu_cost = (hostvars[host]['ansible_processor_vcpus'] | float) * 24 * 30 * 0.05 if hostvars[host]['ansible_processor_vcpus'] is defined else 0 %}
+{% set memory_cost = (hostvars[host]['ansible_memtotal_mb'] / 1024) * 24 * 30 * 0.01 if hostvars[host]['ansible_memtotal_mb'] is defined else 0 %}
+{% set disk_cost = total_disk * 0.05 %}
+{% set total_cost = cpu_cost + memory_cost + disk_cost %}
+
+Total Cost: ${{ total_cost | round(2) }}
 {% endfor %}

@@ -19,14 +19,14 @@
             ansible_devices | selectattr('host', 'defined') | selectattr('size', 'defined') | 
             selectattr('host', 'search', '^sd|^hd|^vd|^nvme') |
             map(attribute='size') | sum | float / (1024*1024*1024) | round(2)
-          }}
+          | default(0.0) }}
 
     - name: Ensure gathered facts are available and valid
       set_fact:
         ansible_serial_number: "{{ ansible_product_serial | default('N/A') }}"
         ansible_product_name: "{{ ansible_product_name | default('Unknown') }}"
-        ansible_total_cpu: "{{ (ansible_processor_vcpus | int) | default(4) }}"
-        ansible_total_memory_gb: "{{ (ansible_memtotal_mb / 1024) | float | round(2) | default(0) }}"
+        ansible_total_cpu: "{{ (ansible_processor_vcpus | int | default(4)) }}"
+        ansible_total_memory_gb: "{{ (ansible_memtotal_mb / 1024) | float | round(2) | default(0.0) }}"
 
     - name: Debug gathered values to inspect CPU, Memory, and Disk Space
       debug:

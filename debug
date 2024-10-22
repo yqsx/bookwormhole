@@ -1,24 +1,24 @@
-# System Information for {{ inventory_hostname }}
-Hostname: {{ inventory_hostname }}
-IP Address: {{ ansible_default_ipv4.address | default('N/A') }}
-Serial Number: {{ ansible_product_serial | default('N/A') }}
-Product Name: {{ ansible_product_name | default('Unknown') }}
-Data Center: {{ local_info1 }}
+---
+- name: Gather facts from all hosts and write to centralized text file
+  hosts: all
+  gather_facts: yes
+  tasks:
+    - name: Set default local info fact (Data Center default to DC1)
+      set_fact:
+        local_info1: "DC1"
 
-# CPU and Memory Information
-CPU Cores: {{ ansible_processor_vcpus | default(0) }}
-Total Memory (GB): {{ (ansible_memtotal_mb / 1024) | float | round(2) | default(0.0) }}
+    - name: Collect all gathered facts into a centralized text file (Jinja2 to text)
+      template:
+        src: centralized_system_data.j2
+        dest: /tmp/centralized_system_data.txt
+      delegate_to: localhost
+      run_once: true
 
-# Disk Devices Information
-{% for device, details in ansible_devices.items() if details.size is defined %}
-Disk: {{ device }} Size (GB): {{ details.size / (1024*1024*1024) | round(2) }}
-{% else %}
-Disk: No valid disk found
-{% endfor %}
+    - name: Run Bash script to process centralized data and generate CSV
+      delegate_to: localhost
+      shell: bash /tmp/process_centralized_data.sh /tmp/centralized_system_data.txt /tmp/final_report.csv
 
-# GPU Information
-{% if ansible_devices | selectattr('key', 'search', '^gpu') | list %}
-GPUs Detected: Yes
-{% else %}
-GPUs Detected: No
-{% endif %}
+    - name: Display the CSV report location
+      debug:
+        msg: "The CSV report has been generated at /tmp/final_report.csv"
+      delegate_to: localhost

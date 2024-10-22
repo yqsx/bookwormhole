@@ -12,7 +12,7 @@
       set_fact:
         local_info1: "{{ local_info_command.stdout if local_info_command.stdout else 'DC1' }}"
 
-    - name: Calculate total disk space in GB (accurate calculation from ansible_devices)
+    - name: Calculate total disk space in GB (handling both sda and vda devices)
       set_fact:
         total_disk_space: >-
           {{
@@ -25,7 +25,7 @@
       set_fact:
         ansible_serial_number: "{{ ansible_product_serial | default('N/A') }}"
         ansible_product_name: "{{ ansible_product_name | default('Unknown') }}"
-        ansible_total_cpu: "{{ (ansible_processor_vcpus | int | default(4)) }}"
+        ansible_total_cpu: "{{ (ansible_processor_vcpus | int | default(1)) }}"
         ansible_total_memory_gb: "{{ (ansible_memtotal_mb / 1024) | float | round(2) | default(0.0) }}"
 
     - name: Debug gathered values to inspect CPU, Memory, and Disk Space

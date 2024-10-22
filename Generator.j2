@@ -1,0 +1,13 @@
+hostname,ip,ansible_serial_number,ansible_product_name,local_info1,ansible_total_memory (GB),ansible_total_cpu,cpu_model,total_disk_space (GB),total_cost
+{% for host in ansible_play_hosts %}
+{{ hostvars[host]['inventory_hostname'] }},
+{{ hostvars[host].get('ansible_default_ipv4', {}).get('address', 'N/A') }},
+{{ hostvars[host].get('ansible_serial_number', 'N/A') }},
+{{ hostvars[host].get('ansible_product_name', 'Unknown') }},
+{{ hostvars[host].get('local_info1', 'DC1') }},
+{{ hostvars[host].get('ansible_total_memory_gb', 0) }},
+{{ hostvars[host].get('ansible_total_cpu', 'N/A') }},
+{{ hostvars[host].get('ansible_processor', ['N/A'])[0] }},
+{{ hostvars[host].get('total_disk_space', 0) }},
+{{ hostvars[host].get('total_cost', 0) }}
+{% endfor %}

@@ -1,0 +1,39 @@
+---
+- name: Gather server data and generate cost report
+  hosts: all
+  gather_facts: yes
+  tasks:
+    - name: Get local info for each server
+      command: cat sample | grep {{ inventory_hostname }} | awk '{print $2}'
+      register: local_info_command
+      failed_when: false
+
+    - name: Set local_info1 fact
+      set_fact:
+        local_info1: "{{ local_info_command.stdout if local_info_command.stdout else 'DC1' }}"
+
+    - name: Calculate total disk space in GB
+      set_fact:
+        total_disk_space: "{{ ansible_devices | selectattr('value.host', 'defined') | sum(attribute='value.size') | float / 1024 / 1024 / 1024 | round(2) }}"
+    
+    - name: Ensure facts are compatible with both physical and virtual systems
+      set_fact:
+        ansible_serial_number: "{{ ansible_product_serial | default('N/A') }}"
+        ansible_product_name: "{{ ansible_product_name | default('Unknown') }}"
+        ansible_total_cpu: "{{ ansible_processor_vcpus | default(4) }}"
+        ansible_total_memory_gb: "{{ (ansible_memtotal_mb / 1024) | round(2) }}"
+
+    - name: Calculate total cost for each server
+      set_fact:
+        total_cost: "{{ ((ansible_total_cpu) * 24 * 30 * 0.05) + 
+                        (ansible_total_memory_gb * 24 * 30 * 0.01) + 
+                        (total_disk_space * 0.05) | round(2) }}"
+    
+    - name: Create CSV report using Jinja2 template
+      template:
+        src: server_report.j2
+        dest: /tmp/generated_report.csv
+    
+    - name: Display the CSV report location
+      debug:
+        msg: "The CSV report has been generated at /tmp/generated_report.csv"

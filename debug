@@ -1,46 +1,25 @@
----
-- name: Gather server data and generate cost report with Bash calculation
-  hosts: all
-  gather_facts: yes
-  tasks:
-    - name: Get local info for each server (Data Center)
-      command: cat sample | grep {{ inventory_hostname }} | awk '{print $2}'
-      register: local_info_command
-      failed_when: false
+#!/bin/bash
 
-    - name: Set local_info1 fact (with default DC1)
-      set_fact:
-        local_info1: "{{ local_info_command.stdout if local_info_command.stdout else 'DC1' }}"
+# Input files
+DEVICES_JSON=$1
+FACTS_FILE=$2
 
-    - name: Gather device details and store them for Bash processing
-      copy:
-        content: "{{ ansible_devices | to_json }}"
-        dest: /tmp/devices_{{ inventory_hostname }}.json
+# Load CPU and Memory from the facts file
+source $FACTS_FILE
 
-    - name: Gather CPU, Memory, and GPU facts for processing in Bash
-      copy:
-        content: |
-          CPU={{ ansible_processor_vcpus | int }}
-          Memory={{ (ansible_memtotal_mb / 1024) | float | round(2) }}
-        dest: /tmp/facts_{{ inventory_hostname }}.txt
+# Initialize total disk space variable
+TOTAL_DISK_SPACE=0
 
-    - name: Run Bash script to calculate accurate disk space and gather results
-      shell: bash /tmp/calculate_resources.sh /tmp/devices_{{ inventory_hostname }}.json /tmp/facts_{{ inventory_hostname }}.txt
-      register: bash_output
+# Parse JSON to get disk sizes (vda, sda, nvme)
+while read -r line; do
+  SIZE=$(echo $line | jq '.value.size')
+  if [ "$SIZE" != "null" ]; then
+    SIZE_IN_GB=$(echo "scale=2; $SIZE / 1024 / 1024 / 1024" | bc)
+    TOTAL_DISK_SPACE=$(echo "scale=2; $TOTAL_DISK_SPACE + $SIZE_IN_GB" | bc)
+  fi
+done < <(jq -c '.[] | select(.host | test("^vda|^sda|^nvme"))' $DEVICES_JSON)
 
-    - name: Parse Bash output
-      set_fact:
-        bash_results: "{{ bash_output.stdout | from_yaml }}"
-
-    - name: Gather facts for the final CSV
-      set_fact:
-        total_cost: "{{ (bash_results.CPU * 24 * 30 * 0.05) + (bash_results.Memory * 24 * 30 * 0.01) + (bash_results.Disk_Space * 0.05) | round(2) }}"
-
-    - name: Create CSV report using Jinja2 template
-      template:
-        src: server_report.j2
-        dest: /tmp/generated_report.csv
-
-    - name: Display the CSV report location
-      debug:
-        msg: "The CSV report has been generated at /tmp/generated_report.csv"
+# Output the final data in YAML format for Ansible
+echo "CPU: $CPU"
+echo "Memory: $MEMORY"
+echo "Disk_Space: $TOTAL_DISK_SPACE"

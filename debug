@@ -6,11 +6,13 @@ Product Name: {% if hostvars[host]['ansible_product_name'] is defined %}{{ hostv
 Data Center: {{ hostvars[host]['local_info1'] }},
 CPU Cores: {% if hostvars[host]['ansible_processor_vcpus'] is defined %}{{ hostvars[host]['ansible_processor_vcpus'] }}{% else %}0{% endif %},
 Total Memory (GB): {% if hostvars[host]['ansible_memtotal_mb'] is defined %}{{ (hostvars[host]['ansible_memtotal_mb'] / 1024) | round(2) }}{% else %}0.0{% endif %},
+
 Disk Space (GB): 
-  {% set total_disk = 0 %}
-  {% for device, details in hostvars[host]['ansible_devices'].items() if details.size is defined %}
-    {% set total_disk = total_disk + (details.size / (1024*1024*1024)) %}
-  {% endfor %}
-  {{ total_disk | round(2) }},
+{% set total_disk = 0 %}
+{% for device, details in hostvars[host]['ansible_devices'].items() if details.size is defined %}
+  {% set total_disk = total_disk + (details.size | float) %}
+{% endfor %}
+{{ (total_disk / (1024*1024*1024)) | round(2) }},
+
 GPUs Detected: {% if hostvars[host]['ansible_devices'] | selectattr('key', 'search', '^gpu') | list %} Yes {% else %} No {% endif %}
 {% endfor %}

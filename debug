@@ -16,10 +16,9 @@
       set_fact:
         total_disk_space: >-
           {{
-            ansible_devices | dict2items |
-            selectattr('value.host', 'defined') |
-            selectattr('key', 'search', '^sd|^hd|^vd|^nvme') |  # Select valid block devices
-            sum(attribute='value.size') / 1024 / 1024 / 1024 | round(2)
+            ansible_devices | selectattr('host', 'defined') | selectattr('size', 'defined') | 
+            selectattr('host', 'search', '^sd|^hd|^vd|^nvme') |
+            map(attribute='size') | sum | float / (1024*1024*1024) | round(2)
           }}
 
     - name: Ensure gathered facts are available and valid

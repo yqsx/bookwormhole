@@ -1,0 +1,147 @@
+Comprehensive Cost Modeling for Linux Infrastructure
+
+
+
+---
+- name: Gather Linux infrastructure cost and generate CSV report
+  hosts: all
+  gather_facts: true
+  gather_subset:
+    - hardware  # Gather CPU, memory, and disk information
+    - network   # Gather default network interface details (IP, MAC)
+    - virtual   # Gather virtualization details if applicable
+    - distribution  # Gather operating system distribution and version
+- name: main
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Set local data center information (gathered from 'sample' file)
+      command: "awk '/{{ inventory_hostname }}/ {print $2}' sample"
+      register: local_info
+      changed_when: false  # Prevent task from being marked changed
+      failed_when: local_info.stdout == ""
+
+    - name: Create CSV file from facts and cost calculation
+      template:
+        src: infrastructure_cost_template.j2
+        dest: /tmp/infrastructure_cost_report.csv
+      delegate_to: localhost
+Hostname,OS,CPU Cores,Total Memory (GB),Total Disk Space (GB),GPU Detected,CPU Cost,Memory Cost,Disk Cost,GPU Cost,Total Cost
+{% for host in groups["all"] %}
+{{ hostvars[host]['inventory_hostname'] }},
+{% if hostvars[host]['ansible_distribution'] is defined and hostvars[host]['ansible_distribution_version'] is defined %}
+  {{ hostvars[host]['ansible_distribution'] }} {{ hostvars[host]['ansible_distribution_version'] }},
+{% else %}
+  Unknown,
+{% endif %}
+{% if hostvars[host]['ansible_processor_vcpus'] is defined %}{{ hostvars[host]['ansible_processor_vcpus'] }}{% else %}0{% endif %},
+{% if hostvars[host]['ansible_memtotal_mb'] is defined %}{{ (hostvars[host]['ansible_memtotal_mb'] / 1024) | round(2) }}{% else %}0.0{% endif %},
+{% set total_disk = 0 %}
+{% for device, details in hostvars[host]['ansible_devices'].items() if details.size is defined %}
+  {% if device.startswith('sd') or device.startswith('vd') or device.startswith('nvme') %}
+    {% set disk_size_numeric = details.size | regex_replace(' GB$', '') | float %}
+    {% set total_disk = total_disk + disk_size_numeric %}
+  {% endif %}
+{% endfor %}
+{{ total_disk | round(2) if total_disk > 0 else 0.0 }},
+
+{# --- GPU Detection Section --- #}
+{% if 'ansible_gpus' in hostvars[host] and hostvars[host]['ansible_gpus']['devices'] is defined and hostvars[host]['ansible_gpus']['devices'] | length > 0 %}
+  {% set gpu_detected = True %}
+  Yes,
+{% else %}
+  {% set gpu_detected = False %}
+  No,
+{% endif %}
+
+{# --- Cost Calculation Section --- #}
+{% set cpu_cost = (hostvars[host]['ansible_processor_vcpus'] | float) * 24 * 30 * 0.05 if hostvars[host]['ansible_processor_vcpus'] is defined else 0 %}
+{% set memory_cost = (hostvars[host]['ansible_memtotal_mb'] / 1024) * 24 * 30 * 0.01 if hostvars[host]['ansible_memtotal_mb'] is defined else 0 %}
+{% set disk_cost = total_disk * 0.05 %}
+{% set gpu_cost = 0 %}
+{% if gpu_detected %}
+  {% set gpu_cost = 0.10 * 24 * 30 %}
+{% endif %}
+
+{{ cpu_cost | round(2) }},
+{{ memory_cost | round(2) }},
+{{ disk_cost | round(2) }},
+{{ gpu_cost | round(2) }},
+
+{# Total cost by summing CPU, memory, disk, and GPU costs #}
+{% set total_cost = cpu_cost + memory_cost + disk_cost + gpu_cost %}
+{{ total_cost | round(2) }}
+{% endfor %}
+
+Cost Calculation Formulas (Per Month in SAR):
+1. CPU Cost (Per Month):
+CPU Cost
+=
+CPU Cores
+×
+24
+×
+30
+×
+0.1875
+ 
+SAR/hour
+CPU Cost=CPU Cores×24×30×0.1875SAR/hour
+Example: For 4 CPU cores:
+4
+×
+24
+×
+30
+×
+0.1875
+=
+540
+ 
+SAR/month
+4×24×30×0.1875=540SAR/month
+2. Memory (RAM) Cost (Per Month):
+Memory Cost
+=
+Total Memory (GB)
+×
+24
+×
+30
+×
+0.0375
+ 
+SAR/GB/hour
+Memory Cost=Total Memory (GB)×24×30×0.0375SAR/GB/hour
+Example: For 16 GB of RAM:
+16
+×
+24
+×
+30
+×
+0.0375
+=
+432
+ 
+SAR/month
+16×24×30×0.0375=432SAR/month
+3. Disk Cost (Per Month):
+Disk Cost
+=
+Total Disk (GB)
+×
+0.1875
+ 
+SAR/GB
+Disk Cost=Total Disk (GB)×0.1875SAR/GB
+Example: For 500 GB of disk space:
+500
+×
+0.1875
+=
+93.75
+ 
+SAR/month
+500×0.1875=93.75SAR/month
+Let me know if this works!
